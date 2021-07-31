@@ -1,5 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:miniplayer/miniplayer.dart';
+import 'package:youubeui/Data/data.dart';
 import 'package:youubeui/Screen/home_screen.dart';
+import 'package:youubeui/Screen/video_screen.dart';
+
+final selectedVideoProvider = StateProvider<Video?>((ref) => null);
+final miniplayerControllerProvider =
+    StateProvider.autoDispose<MiniplayerController>((ref) => MiniplayerController());
 
 class NavScreen extends StatefulWidget {
   const NavScreen({Key? key}) : super(key: key);
@@ -10,6 +18,7 @@ class NavScreen extends StatefulWidget {
 
 class _NavScreenState extends State<NavScreen> {
   int _selectindex = 0;
+  static const double _playerMinHeight = 60;
   final _screens = [
     HomeScreen(),
     const Scaffold(
@@ -36,9 +45,103 @@ class _NavScreenState extends State<NavScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Stack(
-        children: _screens.asMap().map((i, screen) => MapEntry(i, Offstage(offstage: _selectindex !=i, child: screen))).values.toList(),
-      ),  // _screens[selectindex]
+      body: Consumer(
+        builder: (context, watch, _) {
+          final selectedVideo = watch(selectedVideoProvider).state;
+          final miniplayerController = watch(miniplayerControllerProvider).state;
+
+          return Stack(
+            children: _screens
+                .asMap()
+                .map((i, screen) => MapEntry(
+                    i, Offstage(offstage: _selectindex != i, child: screen)))
+                .values
+                .toList()
+                  ..add(Offstage(
+                    offstage: selectedVideo == null,
+                    child: Miniplayer(
+                      controller: miniplayerController, 
+                        maxHeight: MediaQuery.of(context).size.height,
+                        minHeight: _playerMinHeight,
+                        builder: (height, percentage) {
+                          if (selectedVideo == null) {
+                            return const SizedBox.shrink();
+                          }
+                          if(height <=_playerMinHeight + 50)
+                          return Container(
+                              color: Theme.of(context).scaffoldBackgroundColor,
+                              child: Column(
+                                children: [
+                                  Row(
+                                    children: [
+                                      Image.asset(
+                                        selectedVideo.thumbnailUrl,
+                                        height: _playerMinHeight - 4.0,
+                                        width: 120,
+                                        fit: BoxFit.cover,
+                                      ),
+                                      Expanded(
+                                        child: Padding(
+                                          padding: const EdgeInsets.symmetric(
+                                              horizontal: 10.0),
+                                          child: Column(
+                                            crossAxisAlignment:
+                                                CrossAxisAlignment.start,
+                                            // mainAxisSize: MainAxisSize.min,
+                                            children: [
+                                              Text(
+                                                selectedVideo.title,
+                                                maxLines: 1,
+                                                overflow: TextOverflow.ellipsis,
+                                                style: Theme.of(context)
+                                                    .textTheme
+                                                    .caption!
+                                                    .copyWith(
+                                                        fontWeight:
+                                                            FontWeight.w500,
+                                                        color: Colors.white),
+                                              ),
+                                              Text(
+                                                selectedVideo.author.username,
+                                                style: Theme.of(context)
+                                                    .textTheme
+                                                    .caption!
+                                                    .copyWith(
+                                                      fontWeight:
+                                                          FontWeight.w500,
+                                                    ),
+                                              )
+                                            ],
+                                          ),
+                                        ),
+                                      ),
+                                      IconButton(
+                                        onPressed: () {},
+                                        icon: const Icon(Icons.play_arrow),
+                                      ),
+                                      IconButton(
+                                        onPressed: () {
+                                          context
+                                              .read(selectedVideoProvider)
+                                              .state = null;
+                                        },
+                                        icon: const Icon(Icons.close),
+                                      ),
+                                    ],
+                                  ),
+                                  const LinearProgressIndicator(
+                                    value: 0.4,
+                                    valueColor: AlwaysStoppedAnimation<Color>(
+                                        Colors.red),
+                                  )
+                                ],
+                              ));
+                              return VideoScreen();
+                        }),
+                  )),
+          );
+        },
+      ), // _screens[selectindex]
       bottomNavigationBar: BottomNavigationBar(
           type: BottomNavigationBarType.fixed,
           currentIndex: _selectindex,
